@@ -161,3 +161,5 @@ cython_debug/
 
 # Sensitive dev info
 kafka_config/
+config/
+airflow/

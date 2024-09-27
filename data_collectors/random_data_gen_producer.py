@@ -1,4 +1,16 @@
+from confluent_kafka import Producer
+import requests
 import json
+import time
+import random
+import os
+import sys
+
+MODE = os.getenv("DEV")
+HOME = os.getenv("HOME")
+
+sys.path.insert(1, HOME + "/bin/de_projects/ETL-using-randomuser-api/")
+from config.config import config
 
 
 def extraction(val: dict, key1: str, key2: str = None) -> dict:
@@ -6,6 +18,30 @@ def extraction(val: dict, key1: str, key2: str = None) -> dict:
         return val[key1]
     else:
         return val[key1][key2] if val[key1][key2] else {}
+
+
+def callback(err, event):
+    if err:
+        print(
+            f"Produce to topic {event.topic()} failed for event: {event.key()}, {err}"
+        )
+    else:
+        val = event.value().decode("utf8")
+        if MODE:
+            print(
+                f"Topic: {event.topic()}\n Value: {val}, sent to partition {event.partition()}."
+            )
+
+
+def export_data(producer, key, value, topic):
+    producer.produce(topic, value, key, on_delivery=callback)
+
+
+def production_loop(producer, final_results):
+    uuid = final_results["main"]["uuid"]
+    for i, j in final_results.items():
+        j = json.dumps(j, indent=4)
+        export_data(producer, uuid, j, i)
 
 
 def main_table(results):
@@ -157,16 +193,38 @@ def assemble_data(results) -> dict:
     return final
 
 
-def clean_data():
-    with open("/home/ubuntu/ETL-using-randomuser-api/utilizing_airflow/raw_user_data.json", "r") as file_input:
-        raw_data = json.load(file_input)
-        results = []
-        for i in raw_data:
-            results.append(assemble_data(i))
+def produce_data(api_link):
+    # Producer Stuff
+    producer = Producer(config)
 
-    with open("/home/ubuntu/ETL-using-randomuser-api/utilizing_airflow/cleaned_user_data.json", "w") as output_file:
-        json.dump(results, output_file, indent=4)
+    # API Stuff
+    api_link = "https://randomuser.me/api/"
+    try:
+        api = requests.get(api_link)
+        random_person_data = json.loads(api.text)
+        results = random_person_data["results"][0]
+
+        final_results = assemble_data(results)
+
+        production_loop(producer, final_results)
+
+        # time_from_start = time.time() - time_start
+        producer.flush()
+    except:
+        sys.exit(1)
+
+
+def production_scheduler():
+    data_throughput = random.randint(1, 300)
+    time_to_next_fetch = 295 / data_throughput
+    time_start = time.time()
+    time_til_start = 0
+    api_link = "https://randomuser.me/api/"
+    while time_til_start < 300:
+        time.sleep(time_to_next_fetch)
+        produce_data(api_link)
+        time_til_start = time.time() - time_start
 
 
 if __name__ == "__main__":
-    clean_data()
+    produce_data("https://randomuser.me/api/")

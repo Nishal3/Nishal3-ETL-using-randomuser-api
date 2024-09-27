@@ -1,36 +1,39 @@
-import json
-import sys
-import os
-import time
 from confluent_kafka import Consumer
-
-sys.path.insert(1, "/home/ubuntu/ETL-using-randomuser-api/")
-from kafka_config.config import config
-from data_loader import data_loader
+import json
+import os
+import sys
+from random_data_gen_data_loader import data_loader
+import time
 
 MODE = os.getenv("DEV")
-
 
 USERNAME = "postgres"
 PASSWORD = None
 IP = None
+HOME = os.getenv("HOME")
+
+sys.path.insert(1, HOME + "/bin/de_projects/ETL-using-randomuser-api/")
+from config.config import config
 
 with open(
-    "/home/ubuntu/ETL-using-randomuser-api/kafka_config/password.txt", "r"
+    HOME + "/bin/de_projects/ETL-using-randomuser-api/config/password.txt",
+    "r",
 ) as password:
     file_input = password.readline()
     if file_input:
         PASSWORD = file_input.rstrip("\n")
 
 with open(
-    "/home/ubuntu/ETL-using-randomuser-api/kafka_config/ip_address.txt", "r"
+    HOME + "/bin/de_projects/ETL-using-randomuser-api/config/ip_address.txt",
+    "r",
 ) as ip_address:
     file_input = ip_address.readline()
     if file_input:
         IP = file_input.rstrip("\n")
 
 with open(
-    "/home/ubuntu/ETL-using-randomuser-api/kafka_config/username.txt", "r"
+    HOME + "/bin/de_projects/ETL-using-randomuser-api/config/username.txt",
+    "r",
 ) as username:
     file_input = username.readline()
     if file_input:
@@ -68,14 +71,14 @@ def consume_data():
     try:
         time_start = time.time()
         time_til_start = 0
-        while time_til_start < 10:
+        while time_til_start < 15:
             time_til_start = time.time() - time_start
             event = consumer.poll(1.0)
             if event is None:
                 continue
             else:
                 data_dict = procure_data(event)
-                url = f"postgresql://{USERNAME}:{PASSWORD}@{IP}:5432/user_data"
+                url = f"postgresql://{USERNAME}:{PASSWORD}@{IP}:5432/test"
                 data_loader(
                     data_dict,
                     url,
